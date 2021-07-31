@@ -15,6 +15,7 @@ char* getPass(const char* fName);
 int addEntry();
 int viewEntry(const char* fName, int entry);
 int delEntry(const char* fName, int entry);
+int editEntry(const char* fName, int entry);
 int editPass(const char* fName, const char* pass);
 int fileExists(const char* fName);
 int getNextRecNum(const char* fName);
@@ -63,8 +64,9 @@ int main(int argc, char* argv[]) {
         "ADD RECORD: [1]\n"
         "VIEW RECORD: [2]\n"
         "DELETE RECORD: [3]\n"
-        "EDIT PASSWORD: [4]\n"
-        "EXIT: [5]\n\n"
+        "EDIT RECORD [4]\n"
+        "EDIT PASSWORD: [5]\n"
+        "EXIT: [6]\n\n"
         "What would you like to do? ");
     // Do while loop to catch invalid inputs by the user
     // The input stream is flushed constantly because the newline character would get used as input each loop
@@ -80,7 +82,6 @@ int main(int argc, char* argv[]) {
                 for(;;) {
                     printf("would you like to add another entry (y/n)? ");
                     scanf("%c", &again);
-                    fflush(stdin);
                     switch (again) {
                         case 'y':
                             addEntry();
@@ -146,6 +147,31 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             case 4:
+                printf("What record would you like to edit? ");
+                scanf("%i", &rec);
+                fflush(stdin);
+                editEntry(DIARY, rec);
+                for(;;) {
+                    printf("would you like to edit another record (y/n)? ");
+                    scanf("%c", &again);
+                    fflush(stdin);
+                    switch (again) {
+                        case 'y':
+                            printf("What record would you like to edit? ");
+                            scanf("%i", &rec);
+                            fflush(stdin);
+                            editEntry(DIARY, rec);
+                            break;
+                        case 'n':
+                            main(argc, argv);
+                            break;
+                        default:
+                            printf("Please type a valid input!\n");
+                            break;
+                    }
+                }
+                break;
+            case 5:
                 printf("What is the current password? ");
                 scanf("%20s", pass);
                 fflush(stdin);
@@ -161,7 +187,7 @@ int main(int argc, char* argv[]) {
                     main(argc, argv);
                 }
                 break;
-            case 5:
+            case 6:
                 printf("Come back when you have a new record!");
                 exit(0);
                 break;
@@ -243,8 +269,7 @@ int addEntry() {
     *   END\n\n\n
     */
     char buffer[501];
-    fprintf(d, "@%i", getNextRecNum(DIARY));
-    fputc('\n', d);
+    fprintf(d, "@%i\n", getNextRecNum(DIARY));
     fputs(asctime(timeinfo), d);
     printf("Type your new record (MAX 500 CHARACTERS PER LINE (end line by pressing enter)). Type \"stop\" when done.\n");
     for (;;) {
@@ -273,19 +298,19 @@ int viewEntry(const char* fName, int entry) {
     }
     char line[501];
     char rec[3];
-    sprintf(rec, "@%i\0", entry);
+    sprintf(rec, "@%i", entry);
     // Boolean on whether it should print to the console or not (becomes 1 when it's time to print, aka when it reaches the record number)
-    short int print = 0;
+    short int print = 1;
     while(fgets(line, sizeof(line), temp)) {
-        if (strncmp(line, "END", 3)==0) break;
+        if (strncmp(line, "END", 3)==0 && print == 0) break;
         if (strncmp(line, rec, 2)==0) {
-            print = 1;
+            print = 0;
             putchar('\n');
             continue;
         }
-        if (print == 1) printf("%s", line);
+        if (print == 0) printf("%s", line);
     }
-    if (print==0) {
+    if (print==1) {
         printf("Record was not found.\n");
         return 1;
     }
@@ -351,9 +376,66 @@ int delEntry(const char* fName, int entry) {
     // The way this works is that the program creates a temporary file (DIARY_T) and basically copys everything in the original file to the temporary one.
     // When it gets to the record that wants to be deleted, however, it just stops copying, but still reads and continues through the file
     remove(fName);
-    rename(DIARY_T, DIARY);
+    rename(DIARY_T, fName);
     printf("Record successfully deleted.\n");
     return 0;
+}
+// I wonder what this does
+int editEntry(const char* fName, int entry) {
+    FILE* temp = fopen(fName, "r");
+    FILE* temp2 = fopen(DIARY_T, "w");
+    if (temp == NULL || temp2 == NULL) {
+        printf("Error opening files.");
+        return 1;
+    }
+    // Very similar to the addEntry function, but with enough differences to have its own function
+    time_t rawtime;
+    struct tm * timeinfo;
+    time (&rawtime);
+    timeinfo = localtime(&rawtime);
+    // I found a better way to clean up the file!
+    // Time to clean up the delEntry function... nvm I'm lazy
+    // This one works by copying the diary over to the temporary file until it gets to the record
+    // When it gets to the record, it displays the old entry and asks the user to type the new entry
+    char line[501];
+    char buffer[501];
+    char rec[3];
+    short int read = 0;
+    sprintf(rec, "@%i\0", entry);
+    while (fgets(line, sizeof(line), temp)) {
+        if (strncmp(line, rec, 2)==0) {
+            read = 1;
+            fputs(rec, temp2);
+            fputc('\n', temp2);
+            fputs(asctime(timeinfo), temp2);
+            fputc('\n', temp2);
+            printf("Old entry:\n");
+            viewEntry(fName, entry);
+            printf("Type your edited entry (MAX 500 CHARACTERS PER LINE):\n");
+            for(;;) {
+                gets(buffer);
+                if (strncmp(buffer, "stop", 4)==0) {
+                    fputs("\nEND\n\n\n", temp2);
+                    printf("Record successfully edited\n");
+                break;
+                }
+                fputs(buffer, temp2);
+                fputc('\n', temp2);
+            }
+        }
+        else if (strncmp(line, "END", 3)==0 && read == 1) {
+            read = 0;
+            fgets(line, sizeof(line), temp);
+            fgets(line, sizeof(line), temp);
+            continue;
+        }
+        if (read == 0) fputs(line, temp2);
+    }
+    fclose(temp);
+    fclose(temp2);
+    remove(fName);
+    rename(DIARY_T, fName);
+    return 0;    
 }
 // I'm not even going to say anything
 int editPass(const char* fName, const char* pass) {
@@ -380,7 +462,7 @@ int editPass(const char* fName, const char* pass) {
     fclose(temp2);
     // Same thing as the delete function
     remove(fName);
-    rename(DIARY_T, DIARY);
+    rename(DIARY_T, fName);
     printf("Successfully edited password.\n");
     return 0;
 }
