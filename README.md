@@ -1,7 +1,7 @@
 # Diary
 A program that makes a diary for you.
 --------------------------
-THIS ONLY WORKS ON WINDOWS!!
+THIS ONLY WORKS ON WINDOWS!! Unless you change the paths, then it might work everywhere else
 --------------------------
 You can create, edit, and view entries that you've written.
 Fully customizable! You can change the path of where the diary is located in the definitions at the top.
