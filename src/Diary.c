@@ -193,8 +193,9 @@ int main(int argc, char* argv[]) {
                 break;
             default:
                 printf("Please input a valid choice! ");
+                break;
         }
-    } while (choice > 5 || choice < 1);
+    } while (choice > 6 || choice < 1);
     // Frees each of the paths because the concatenate function mallocates a string and returns it
     // IF YOU CHANGE THE PATHS AND USE THE CONCATENATE FUNCTION, MAKE SURE TO FREE THEM HERE (if you changed the names)
     free(PATH);
